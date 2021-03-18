@@ -42,10 +42,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/TheRobBrennan/podcast-explorer.git"
+    "url": "git+https://github.com/generalui/web-pairing-audition-podcast-explorer.git"
   },
   "bugs": {
-    "url": "https://github.com/TheRobBrennan/podcast-explorer/issues"
+    "url": "https://github.com/generalui/web-pairing-audition-podcast-explorer/issues"
   },
-  "homepage": "https://github.com/TheRobBrennan/podcast-explorer#readme"
+  "homepage": "https://github.com/generalui/web-pairing-audition-podcast-explorer#readme"
 }
