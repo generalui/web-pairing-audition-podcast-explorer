@@ -1,0 +1,132 @@
+# See the following guide for generating custom resolvers and optionally excluding queries and mutations from being automatically generated
+# https://www.notion.so/neo4j-graphql-v1-0-0-alpha-2-d47908030d4e4a0c86babbaef63887d0
+type User {
+  id: ID! @autogenerate
+  username: String!
+  password: String!
+  createdAt: DateTime @autogenerate(operations: ["create"])
+  updatedAt: DateTime @autogenerate(operations: ["update"])
+}
+
+type AuthToken {
+  """
+  HS 256-bit encrypted JWT
+  """
+  token: String!
+}
+extend type AuthToken @exclude(operations: "*")
+
+type Podcast {
+  iTunesId: ID!
+  title: String!
+  releaseDate: DateTime
+  feedURL: String!
+  categories: [String]
+  createdAt: DateTime @autogenerate(operations: ["create"])
+  createdBy: ID
+  updatedAt: DateTime @autogenerate(operations: ["update"])
+  updatedBy: ID
+}
+
+type PodcastSearchResult {
+  iTunesId: Int!
+  title: String!
+  releaseDate: DateTime
+  feedURL: String
+  categories: [String]
+}
+extend type PodcastSearchResult @exclude(operations: "*")
+
+type Query {
+  """
+  A sample query to verify that our GraphQL server is online.
+
+  It returns the current timestamp.
+  """
+  ping: String!
+    @cypher(
+      statement: """
+      RETURN toString(datetime())
+      """
+    )
+
+  """
+  A sample query to return details for the authenticated user currently logged in to our system
+  """
+  me: User
+    @cypher(
+      statement: """
+      MATCH (u:User {id: $jwt.id})
+      RETURN u
+      """
+    )
+
+  """
+  Search the canonical iTunes API for podcasts matching the provided searchTerm
+  """
+  podcastSearch(searchTerm: String!): [PodcastSearchResult]
+    @cypher(
+      statement: """
+      CALL apoc.load.jsonParams('https://itunes.apple.com/search?media=podcast&term=' + apoc.text.urlencode($searchTerm), null, null, null) YIELD value
+      UNWIND value.results AS result
+      RETURN {
+       iTunesId: result.collectionId,
+       title: result.collectionName,
+       releaseDate: result.releaseDate,
+       feedURL: result.feedUrl,
+       categories: result.genres
+      }
+      """
+    )
+
+  """
+  Return all podcasts that the authenticated user has subscribed to.
+  """
+  subscribedPodcasts: [Podcast]
+    @cypher(
+      statement: """
+      MATCH (u:User {id: $jwt.id})-[:SUBSCRIBES_TO]->(p:Podcast)
+      RETURN p
+      """
+    )
+}
+
+type Mutation {
+  signup(username: String!, password: String!): AuthToken
+  login(username: String!, password: String!): AuthToken
+  subscribeToPodcast(iTunesId: String!): Podcast
+    @cypher(
+      statement: """
+      CALL apoc.load.jsonParams('https://itunes.apple.com/lookup?id=' + apoc.text.urlencode($iTunesId), null, null, null) YIELD value
+      WITH
+        value.results[0] as podcast,
+        apoc.date.currentTimestamp() as currentTimestamp
+      MATCH (u:User {id: $jwt.id})
+      MERGE (p:Podcast {iTunesId: $iTunesId})
+        ON CREATE SET
+            p.title = podcast.collectionName,
+            p.releaseDate = podcast.releaseDate,
+            p.feedURL = podcast.feedUrl,
+            p.categories = podcast.genres,
+            p.createdAt = datetime({epochMillis: currentTimestamp}),
+            p.createdBy = u.id
+        ON MATCH SET
+            p.title = podcast.collectionName,
+            p.releaseDate = podcast.releaseDate,
+            p.feedURL = podcast.feedUrl,
+            p.categories = podcast.genres,
+            p.updatedAt = datetime({epochMillis: currentTimestamp}),
+            p.updatedBy = u.id
+      MERGE (u)-[:SUBSCRIBES_TO]->(p)
+      RETURN p
+      """
+    )
+  unsubscribeToPodcast(iTunesId: String!): String
+    @cypher(
+      statement: """
+      MATCH (u:User {id: $jwt.id})-[rel:SUBSCRIBES_TO]->(p:Podcast)
+      DELETE rel
+      RETURN "SUCCESS: You are no longer subscribed to " + p.title
+      """
+    )
+}

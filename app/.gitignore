@@ -1,0 +1,6 @@
+node_modules/
+.next
+coverage/
+
+# Normally it's a terrible idea to commit environment variable files to a repo. However, we are using this example project for a pairing audition and want to keep life as simple as possible.
+#.env
