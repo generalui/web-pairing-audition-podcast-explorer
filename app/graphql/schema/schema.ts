@@ -5,5 +5,4 @@ import { resolvers } from "../resolvers"
 export const augmentedSchema = new Neo4jGraphQL({
   typeDefs,
   resolvers,
-  debug: true,
 })
